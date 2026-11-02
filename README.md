@@ -1,10 +1,13 @@
-# Database-Engine
+# MiniDB: An Embedded Database Engine in C++
 
-A small embedded database engine written in C++17.
+![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
+![Build: CMake](https://img.shields.io/badge/build-CMake-064F8C.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
+![DSA Project](https://img.shields.io/badge/course-DSA%20project-lightgrey.svg)
 
-It stores key-value data in a single file on disk. Close the program, open it again, the data is still there.
+A small persistent key-value database built from scratch in C++17. It stores data in a single file using 4KB pages, finds records with a B+ Tree index, and caches pages in RAM with an LRU buffer pool. Supports PUT, GET, DELETE and range SCAN.
 
-Built from scratch as our Data Structures and Algorithms end-semester project. No external database libraries.
+Our Data Structures and Algorithms end-semester project. No external database libraries.
 
 ---
 
@@ -131,7 +134,7 @@ Variable-length records are packed into one 4KB page like this:
 ## Project structure
 
 ```
-minidb/
+Database-Engine/
   CMakeLists.txt
   README.md
   include/
@@ -171,7 +174,7 @@ Requirements: C++17 compiler (g++ or clang), CMake 3.14+.
 
 ```bash
 git clone <repo-url>
-cd minidb
+cd Database-Engine
 mkdir build && cd build
 cmake ..
 cmake --build .
@@ -297,24 +300,6 @@ Measured with `std::chrono`. Machine: `<CPU, RAM, OS>`. Compiler flags: `-O2`.
 | 3 | Own B+ Tree in RAM replaces `std::map` |
 | 4 | B+ Tree stored in pages, persistence, `SCAN` |
 | 5 | Tests, benchmarks, delete with merge, WAL |
-
-## Current status
-
-Update this as things get done.
-
-- [ ] Disk Manager
-- [ ] Buffer Pool (LRU, pin, dirty flush)
-- [ ] Slotted page and serialization
-- [ ] Parser and CLI
-- [ ] Database class
-- [ ] B+ Tree insert, search, splits
-- [ ] B+ Tree range scan
-- [ ] B+ Tree stored in pages
-- [ ] Persistence test passing
-- [ ] 100k stress test passing
-- [ ] Benchmarks
-- [ ] B+ Tree delete with merge/redistribute (stretch)
-- [ ] Write-Ahead Log (stretch)
 
 ## Known limitations
 
