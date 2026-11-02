@@ -5,9 +5,9 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![DSA Project](https://img.shields.io/badge/course-DSA%20project-lightgrey.svg)
 
-A small persistent key-value database built from scratch in C++17. It stores data in a single file using 4KB pages, finds records with a B+ Tree index, and caches pages in RAM with an LRU buffer pool. Supports PUT, GET, DELETE and range SCAN.
+A small persistent key-value database built from scratch in C++17. It finds records with an AVL tree index, speeds up repeated reads with an LRU cache, and supports undo. Data is saved to a file and reloaded on start.
 
-Our Data Structures and Algorithms end-semester project. No external database libraries.
+Our Data Structures and Algorithms end-semester project. Every data structure is written by us. No external database libraries.
 
 ---
 
@@ -16,14 +16,20 @@ Our Data Structures and Algorithms end-semester project. No external database li
 ```
 > PUT 101 "Areefa"
 SUCCESS: Record 101 inserted.
+> PUT 102 "Ali"
+SUCCESS: Record 102 inserted.
 > GET 101
 101 -> Areefa
 > SCAN 100 200
 101 -> Areefa
+102 -> Ali
 > DELETE 101
 SUCCESS: Record 101 deleted.
-> GET 101
-NOT FOUND
+> UNDO
+SUCCESS: Undid DELETE 101.
+> SORT VALUE
+102 -> Ali
+101 -> Areefa
 > EXIT
 ```
 
@@ -37,97 +43,90 @@ Keys are integers. Values are text (a word or a "quoted string").
 | `GET <key>` | Fetch one record |
 | `DELETE <key>` | Remove a record |
 | `SCAN <lo> <hi>` | Return all records with keys from lo to hi, in order |
-| `STATS` | Show buffer pool hit/miss ratio, page count, tree height |
-| `EXIT` | Flush everything to disk and quit |
+| `SORT VALUE` | Show all records sorted by value |
+| `UNDO` | Reverse the last PUT or DELETE |
+| `HISTORY` | Show the last 10 commands |
+| `STATS` | Show cache hit/miss ratio, record count, tree height |
+| `EXIT` | Save everything to the file and quit |
 
 ---
 
 ## How it works
 
-Disk is slow, RAM is fast. The whole design is about touching the disk as little as possible.
-
-Three ideas do most of the work:
-
-1. **Pages.** The `.db` file is cut into fixed 4096-byte blocks. Page N lives at byte `N * 4096`. All reads and writes happen one page at a time.
-2. **B+ Tree index.** Maps `key -> RecordId{page_id, slot}`. Lookups take O(log N) page reads instead of scanning every record. Leaf nodes are linked left to right, so range scans are fast.
-3. **LRU buffer pool.** A fixed number of page-sized frames in RAM. If a page is already there it is a hit. If not, it is loaded from disk, and the least recently used unpinned page is evicted.
+The database keeps records in an AVL tree, which stays balanced so every lookup takes O(log N) steps. A small LRU cache sits in front of it so recent reads are answered in O(1). Records are saved to a plain file on exit and loaded again on start.
 
 ### Architecture
 
 ```
 User (CLI or C++ API)
-        |
-        v
-  [ Parser ]                 text command -> Command object
-        |
-        v
-  [ Database ]               decides what to do
-        |
-   +----+------------------+
-   |                       |
-   v                       v
-[ B+ Tree ]          [ Record Manager ]
-key -> RecordId      slotted pages, serialization
-   |                       |
-   +-----------+-----------+
-               v
-     [ Buffer Pool Manager ]   LRU cache of pages in RAM
-               |
-               v
-        [ Disk Manager ]       reads/writes 4KB pages
-               |
-               v
-         mydata.db             single file on disk
+   |
+   v
+[ Parser ]  text -> Command
+   |        HISTORY (circular queue)
+   v
+[ Database ]  decides what to do, keeps the UNDO stack
+   |
+   +--------------------+
+   |                    |
+   v                    v
+[ LRU Cache ]      [ Index (ADT) ]
+hash table +        |-- AVLIndex          (final choice)
+doubly linked list  |-- SortedArrayIndex  (baseline, binary search)
+   |                |-- LinkedListIndex   (baseline, linear search)
+   |                    |
+   +----------+---------+
+              v
+      [ Persistence ]  <->  mydata.db (plain file)
+
+[ Sorting ]  merge sort, quick sort (used by SORT)
 ```
 
-Both the data pages and the B+ Tree nodes are stored as pages and accessed only through the buffer pool. So the index is persistent and cached too.
-
-### File layout
-
-| Page ID | Content |
-|---|---|
-| 0 | Meta page: magic number, page count, B+ Tree root page ID, next free page |
-| 1, 2, 3 ... | Data pages (slotted records) or B+ Tree node pages |
+The Database talks only to the `Index` interface, so the index implementation can be swapped by changing one line. We built the two simple indexes first, so the system worked before the AVL tree was ready, and we use them as benchmark baselines.
 
 ### What happens on `PUT 101 "Areefa"`
 
-1. Parser turns the text into `Command{PUT, 101, "Areefa"}`.
-2. Database checks the index: does key 101 exist? (insert vs update)
-3. Record Manager serializes the value and finds a data page with free space.
-4. Buffer pool returns the page (hit) or loads it from disk (miss), pinned.
-5. The slotted page stores the bytes and returns `RecordId{page 4, slot 2}`. Page is unpinned and marked dirty.
-6. B+ Tree inserts `101 -> {4, 2}`. If a leaf overflows it splits, and the split can travel up to the root.
+1. Parser turns the text into a command and adds it to HISTORY.
+2. Database reads the old value of key 101 (needed for UNDO).
+3. The AVL tree inserts or updates the key and rebalances with rotations if needed.
+4. The cache stores the record so the next GET is fast.
+5. The opposite action is pushed on the UNDO stack.
 
-`GET` is the reverse: tree finds the RecordId, buffer pool fetches the page, slotted page returns the bytes.
+`GET` checks the cache first (hit: O(1)). On a miss it searches the tree, then stores the result in the cache.
 
-### Slotted page
+### Data structures used
 
-Variable-length records are packed into one 4KB page like this:
+| Data structure / algorithm | Where it is used |
+|---|---|
+| AVL tree | Main index: search, insert, delete, ordered range scan |
+| Binary search tree | Built first, then upgraded to AVL |
+| Hash table (chaining, rehashing) | Inside the LRU cache |
+| Doubly linked list | LRU ordering, O(1) move and evict |
+| Singly linked list | Hash bucket chains, LinkedListIndex |
+| Stack | UNDO |
+| Circular queue | HISTORY |
+| Linear search, binary search | Baseline indexes and benchmarks |
+| Merge sort, quick sort | SORT command |
+| Recursion | AVL operations, traversals, sorting |
 
-```
-| Header | Slot0 | Slot1 | ... free space ... | Rec1 | Rec0 |
-```
+### AVL tree
 
-- Slot directory grows forward from the start.
-- Record bytes grow backward from the end.
-- Free space is the gap in the middle.
-- Each slot stores `offset` and `length`. Deleting a record sets `length = 0`, and that slot can be reused later.
+- Each node stores key, value, height, left and right child.
+- Balance factor = height(left) - height(right). If it reaches 2 or -2, we rotate.
+- Four cases: Left-Left, Right-Right, Left-Right, Right-Left.
+- Insert and delete rebalance every node on the path back to the root.
+- Range scan is a recursive in-order walk that skips subtrees outside the range.
+- Sorted input does not slow it down. A plain BST would turn into a chain.
 
-### Buffer pool
+### LRU cache
 
-- `unordered_map<PageId, FrameId>` for O(1) lookup.
-- Doubly linked list for LRU order, with stored iterators for O(1) move and remove.
-- **Pin count:** a page in use is never evicted.
-- **Dirty flag:** a modified page is written to disk before it is evicted.
-- `FlushAll()` runs on shutdown so no data is lost.
+- Our own hash table maps key to a node in a doubly linked list.
+- Head of the list is most recently used. Tail is least recently used.
+- Get moves the node to the head. When the cache is full, the tail is evicted.
+- DELETE and UNDO also update the cache, so it never returns stale data.
 
-### B+ Tree
+### Persistence
 
-- One node = one page = one disk read.
-- Internal nodes hold keys and child page IDs. Leaves hold keys and RecordIds.
-- Leaf split **copies up** the first key of the new leaf. Internal split **pushes up** the middle key.
-- If the root splits, a new root is created. This is the only way the tree grows taller.
-- `MAX_KEYS` is a small constant in tests so splits happen with a few inserts.
+Records are saved to a plain text file, one after another, with the value length before the value so spaces and line breaks are safe. The file is written to a temporary file first and then renamed, so a failure in the middle does not destroy the old file. On start, records are loaded back into the tree.
 
 ---
 
@@ -137,29 +136,35 @@ Variable-length records are packed into one 4KB page like this:
 Database-Engine/
   CMakeLists.txt
   README.md
+  LICENSE
   include/
     common.h
-    disk_manager.h
-    buffer_pool.h
-    bplus_tree.h
-    record_page.h
+    index.h
+    linked_list_index.h
+    sorted_array_index.h
+    avl_index.h
+    hash_table.h
+    lru_cache.h
+    stack.h
+    circular_queue.h
+    sorting.h
+    persistence.h
     parser.h
     database.h
   src/
-    disk_manager.cpp
-    buffer_pool.cpp
-    bplus_tree.cpp
-    record_page.cpp
-    parser.cpp
-    database.cpp
-    main.cpp
+    main.cpp            (CLI)
+    ...                 (one .cpp per module that needs one)
   tests/
-    test_disk.cpp
-    test_buffer_pool.cpp
-    test_bplus_tree.cpp
-    test_record_page.cpp
+    test_linked_list_index.cpp
+    test_sorted_array_index.cpp
+    test_avl.cpp
+    test_hash_table.cpp
+    test_lru_cache.cpp
+    test_stack_queue.cpp
+    test_sorting.cpp
     test_parser.cpp
     test_persistence.cpp
+    test_database.cpp
   bench/
     bench_main.cpp
   docs/
@@ -170,7 +175,7 @@ Database-Engine/
 
 ## Build and run
 
-Requirements: C++17 compiler (g++ or clang), CMake 3.14+.
+Requirements: C++17 compiler (g++ or clang), CMake.
 
 ```bash
 git clone <repo-url>
@@ -214,7 +219,8 @@ if (db.Get(101, &value)) {
 
 auto rows = db.Scan(100, 200);   // sorted by key
 db.Delete(101);
-// destructor flushes everything to disk
+db.Undo();                       // 101 is back
+// destructor saves everything to the file
 ```
 
 ---
@@ -223,13 +229,16 @@ db.Delete(101);
 
 | Module | What is tested |
 |---|---|
-| Disk Manager | Write a page, reopen the file, read back identical bytes |
-| Buffer Pool | LRU order, dirty page written on eviction, pinned page never evicted, hit/miss counts |
-| Slotted page | Insert until full, get, delete, reuse of deleted slot, variable lengths |
-| B+ Tree | Sequential, reverse and random inserts, splits at small `MAX_KEYS`, sorted range scan, compared against `std::map` |
+| Linked list and sorted array index | Put, update, get, remove, range, same answers as each other |
+| AVL tree | Sequential, reverse and random inserts, random deletes, validity check after every step, height bound, sorted range scan |
+| Hash table | Collisions, update, remove from a chain, rehash keeps every key |
+| LRU cache | Eviction order, update moves to front, remove, hit/miss counts |
+| Stack and circular queue | Push, pop, empty cases, wrap-around, overwrite when full |
+| Sorting | Empty, duplicates, sorted, reverse, random, all algorithms agree |
 | Parser | Valid commands, quoted strings, missing arguments, non-numeric keys |
-| Persistence | Put 1000 records, close, reopen, all still readable |
-| Stress | 100k random operations compared against a reference `std::map` |
+| Persistence | Put 1000 records, close, reopen, all still equal |
+| Database | UNDO restores state, cache never returns a deleted key |
+| Stress | 100k random operations compared with a reference |
 
 ---
 
@@ -239,37 +248,38 @@ Measured with `std::chrono`. Machine: `<CPU, RAM, OS>`. Compiler flags: `-O2`.
 
 > Numbers below are filled in after running `bench/bench_main.cpp`. Do not trust a row until it has a value.
 
-**1. Index vs linear scan (GET latency)**
+**1. GET latency by index type**
 
-| N keys | B+ Tree | Linear scan | Speedup |
+| N keys | Linked list (linear) | Sorted array (binary search) | AVL tree |
 |---|---|---|---|
 | 1,000 | TBD | TBD | TBD |
 | 10,000 | TBD | TBD | TBD |
 | 100,000 | TBD | TBD | TBD |
-| 1,000,000 | TBD | TBD | TBD |
 
-**2. Buffer pool size vs speed**
+**2. Sorted inserts: plain BST vs AVL**
 
-| Pool size (frames) | Hit rate | Total time |
+| N keys | BST height | AVL height | BST time | AVL time |
+|---|---|---|---|---|
+| 1,000 | TBD | TBD | TBD | TBD |
+| 10,000 | TBD | TBD | TBD | TBD |
+
+**3. Cache size vs hit rate**
+
+| Cache size | Hit rate |
+|---|---|
+| 4 | TBD |
+| 16 | TBD |
+| 64 | TBD |
+| 256 | TBD |
+
+**4. Sorting time**
+
+| Algorithm | N = 1,000 | N = 10,000 |
 |---|---|---|
-| 4 | TBD | TBD |
-| 16 | TBD | TBD |
-| 64 | TBD | TBD |
-| 256 | TBD | TBD |
-
-**3. Insert throughput**
-
-| Key order | Inserts per second |
-|---|---|
-| Sequential | TBD |
-| Random | TBD |
-
-**4. Range scan**
-
-| Method (1000 keys) | Time |
-|---|---|
-| Leaf-link `SCAN` | TBD |
-| Repeated `GET` | TBD |
+| Bubble sort | TBD | TBD |
+| Insertion sort | TBD | TBD |
+| Merge sort | TBD | TBD |
+| Quick sort | TBD | TBD |
 
 ---
 
@@ -277,41 +287,45 @@ Measured with `std::chrono`. Machine: `<CPU, RAM, OS>`. Compiler flags: `-O2`.
 
 | Operation | Time |
 |---|---|
-| PUT | O(log N) page accesses |
-| GET | O(log N) page accesses |
-| DELETE | O(log N) page accesses |
+| PUT | O(log N) |
+| GET | O(1) on a cache hit, O(log N) on a miss |
+| DELETE | O(log N) |
 | SCAN (k results) | O(log N + k) |
-| Buffer pool fetch / evict | O(1) |
+| UNDO | O(log N) |
+| SORT VALUE | O(N log N) |
+| Cache get / put | O(1) |
 
 ---
 
 ## Design decisions
 
-- **Why a B+ Tree and not a BST or AVL?** High fanout means a very shallow tree (about 3 levels for millions of keys), so few disk reads. Data sits only in linked leaves, which makes range scans cheap.
-- **Why 4KB pages?** Matches the common OS and disk block size, so I/O is efficient.
-- **Why LRU?** Simple, O(1) with a hash map plus doubly linked list, and works well for typical access patterns.
-- **Why store tree nodes as pages?** The index becomes persistent and goes through the same cache as data.
+- **Why an AVL tree and not a plain BST?** A BST turns into a chain when keys arrive in order, and sequential IDs are common. AVL keeps the height near 1.44 x log2(N).
+- **Why keep a tree if a hash table is faster?** A hash table cannot return keys in order, so SCAN and sorted output need the tree.
+- **Why a hash table plus doubly linked list for LRU?** The hash table finds the node, the list moves and evicts it, both in O(1).
+- **Why a stack for UNDO?** Last change is the first to be reversed.
+- **Why a circular queue for HISTORY?** Keeps only the last 10 commands without shifting anything.
+- **Why build two baseline indexes?** They give us a working system early, a benchmark comparison, and a way to test the AVL tree against known-correct answers.
 - **Why build in levels?** So something always runs. Each level is a working demo.
 
 | Level | What it adds |
 |---|---|
-| 1 | Disk manager, slotted pages, `std::map` as index, CLI |
-| 2 | Buffer pool with LRU, pin counts, dirty flush |
-| 3 | Own B+ Tree in RAM replaces `std::map` |
-| 4 | B+ Tree stored in pages, persistence, `SCAN` |
-| 5 | Tests, benchmarks, delete with merge, WAL |
+| 1 | Linked-list index, Database class, CLI, save and load |
+| 2 | Sorted-array index, UNDO, HISTORY |
+| 3 | AVL tree replaces the baseline index |
+| 4 | Hash table and LRU cache, SCAN, SORT, STATS |
+| 5 | Tests, benchmarks, README, stretch goals |
 
 ## Known limitations
 
 - Single-threaded. No locks.
-- No crash recovery. A crash during a write can corrupt the file. A Write-Ahead Log would fix this.
+- Records are saved on EXIT. If the program crashes before saving, changes since the last save are lost.
+- Everything is held in memory while the program runs, so the data set must fit in RAM.
 - Keys are 64-bit integers only.
 - Not a SQL database. No joins, no query optimizer, no network layer.
-- Deleted record space inside a page is reused by slot, but pages are not compacted.
 
 ## Future work
 
-Write-Ahead Log and crash recovery, B+ Tree delete with merge, typed object API, free-space map for data pages, concurrency, simple SQL-like syntax.
+Append-only log for crash safety, BATCH command from a file (queue), key expiry with a priority queue (heap), graph links between records, more index types.
 
 ---
 
@@ -319,18 +333,16 @@ Write-Ahead Log and crash recovery, B+ Tree delete with merge, typed object API,
 
 | Member | Owns |
 |---|---|
-| Areeba | B+ Tree: insert, search, splits, range scan |
-| Arbish | Disk Manager, Page, Buffer Pool (LRU, pin counts, dirty flush) |
-| Areefa | Slotted page and serialization, Database class, integration, tests, benchmarks, README |
+| Areeba | AVL tree: insert, delete, rotations, range scan, validity checks |
+| Arbish | Hash table, LRU cache, persistence, CMake setup |
+| Areefa | Index interface, linked-list and sorted-array indexes, stack, circular queue, sorting, parser and CLI, Database class, integration, benchmarks, README |
 
 Contribution history is in the git log. Each person works on their own branch and merges through a pull request.
 
 ## Learning resources
 
-- CMU 15-445 Database Systems (buffer pool and B+ Tree lectures)
-- USFCA B+ Tree visualizer
-- *Database Internals* by Alex Petrov
-- SQLite file format documentation
+- Our course lectures and slides
+- USFCA data structure visualizations (AVL trees, hash tables)
 
 Used to understand concepts. Code is our own.
 
