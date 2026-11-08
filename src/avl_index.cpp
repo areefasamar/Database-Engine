@@ -1,4 +1,6 @@
+#include <algorithm>
 #include "avl_index.h"
+
 
 using namespace std;
 
@@ -65,7 +67,8 @@ AVLIndex::Node* AVLIndex::insertNode(
     else {
         node->value = value;
     }
-
+    
+    updateHeight(node);
     return node;
 }
 
@@ -78,4 +81,20 @@ bool AVLIndex::Put(Key key, const string& value) {
     }
 
     return inserted;
+}
+
+int AVLIndex::nodeHeight(Node* node) const {
+    if (node == nullptr) {
+        return 0;
+    }
+    return node->height;
+}
+
+void AVLIndex::updateHeight(Node* node) {
+    node->height = 1 + max(nodeHeight(node->left),
+                           nodeHeight(node->right));
+}
+
+int AVLIndex::Height() const {
+    return nodeHeight(root);
 }
