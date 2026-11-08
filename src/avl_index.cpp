@@ -46,3 +46,36 @@ void AVLIndex::clearTree(Node* node) {
 AVLIndex::~AVLIndex() {
     clearTree(root);
 }
+
+AVLIndex::Node* AVLIndex::insertNode(
+    Node* node, Key key, const string& value, bool& inserted) {
+
+    if (node == nullptr) {
+        Node* newNode = new Node(key, value);
+        inserted = true;
+        return newNode;
+    }
+
+    if (key < node->key) {
+        node->left = insertNode(node->left, key, value, inserted);
+    }
+    else if (key > node->key) {
+        node->right = insertNode(node->right, key, value, inserted);
+    }
+    else {
+        node->value = value;
+    }
+
+    return node;
+}
+
+bool AVLIndex::Put(Key key, const string& value) {
+    bool inserted = false;
+    root = insertNode(root, key, value, inserted);
+
+    if (inserted) {
+        ++count;
+    }
+
+    return inserted;
+}

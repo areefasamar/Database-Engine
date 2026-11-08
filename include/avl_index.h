@@ -23,6 +23,8 @@ private:
 
      void clearTree(Node* node);
 
+         Node* insertNode(Node* node, Key key, const std::string& value, bool& inserted);
+
 public:
     AVLIndex();
     ~AVLIndex() override;
