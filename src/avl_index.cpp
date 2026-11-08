@@ -32,3 +32,17 @@ bool AVLIndex::Get(Key key, string* out) const {
 
     return false;
 }
+
+void AVLIndex::clearTree(Node* node) {
+    if (node == nullptr) {
+        return;
+    }
+
+    clearTree(node->left);
+    clearTree(node->right);
+    delete node;
+}
+
+AVLIndex::~AVLIndex() {
+    clearTree(root);
+}

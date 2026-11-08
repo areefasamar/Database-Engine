@@ -21,6 +21,8 @@ private:
     Node* root;
     std::size_t count;
 
+     void clearTree(Node* node);
+
 public:
     AVLIndex();
     ~AVLIndex() override;
