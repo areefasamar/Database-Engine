@@ -119,3 +119,16 @@ AVLIndex::Node* AVLIndex::rotateRight(Node* node) {
 
     return newRoot;
 }
+
+AVLIndex::Node* AVLIndex::rotateLeft(Node* node) {
+    Node* newRoot = node->right;
+    Node* transferred = newRoot->left;
+
+    newRoot->left = node;
+    node->right = transferred;
+
+    updateHeight(node);
+    updateHeight(newRoot);
+
+    return newRoot;
+}
