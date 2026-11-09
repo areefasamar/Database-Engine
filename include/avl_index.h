@@ -31,6 +31,7 @@ private:
     Node* rotateRight(Node* node);
     Node* rotateLeft(Node* node);
     Node* rebalance(Node* node);
+    Node* removeNode(Node* node, Key key, bool& removed);
 
 public:
     AVLIndex();

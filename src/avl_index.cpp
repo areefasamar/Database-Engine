@@ -156,3 +156,44 @@ AVLIndex::Node* AVLIndex::rebalance(Node* node) {
 
     return node;
 }
+
+AVLIndex::Node* AVLIndex::removeNode(Node* node, Key key, bool& removed) {
+    if (node == nullptr) {
+        return nullptr;
+    }
+
+    if (key < node->key) {
+        node->left = removeNode(node->left, key, removed);
+    }
+    else if (key > node->key) {
+        node->right = removeNode(node->right, key, removed);
+    }
+    else {
+        if (node->left == nullptr || node->right == nullptr) {
+            Node* child = node->left != nullptr ? node->left : node->right;
+            delete node;
+            removed = true;
+            return child;
+        }
+
+        Node* successor = node->right;
+        while (successor->left != nullptr) {
+            successor = successor->left;
+        }
+        // Copy the text before changing the key in case allocation fails.
+        node->value = successor->value;
+        node->key = successor->key;
+        node->right = removeNode(node->right, successor->key, removed);
+    }
+
+    return rebalance(node);
+}
+
+bool AVLIndex::Remove(Key key) {
+    bool removed = false;
+    root = removeNode(root, key, removed);
+    if (removed) {
+        --count;
+    }
+    return removed;
+}
