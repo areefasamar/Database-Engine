@@ -32,6 +32,8 @@ private:
     Node* rotateLeft(Node* node);
     Node* rebalance(Node* node);
     Node* removeNode(Node* node, Key key, bool& removed);
+    void collectRange(Node* node, Key lo, Key hi,
+                      std::vector<KeyValue>& records) const;
 
 public:
     AVLIndex();

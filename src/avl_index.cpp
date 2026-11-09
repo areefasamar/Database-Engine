@@ -197,3 +197,27 @@ bool AVLIndex::Remove(Key key) {
     }
     return removed;
 }
+
+void AVLIndex::collectRange(Node* node, Key lo, Key hi,
+                            vector<KeyValue>& records) const {
+    if (node == nullptr) {
+        return;
+    }
+    if (node->key > lo) {
+        collectRange(node->left, lo, hi, records);
+    }
+    if (lo <= node->key && node->key <= hi) {
+        records.emplace_back(node->key, node->value);
+    }
+    if (node->key < hi) {
+        collectRange(node->right, lo, hi, records);
+    }
+}
+
+vector<KeyValue> AVLIndex::Range(Key lo, Key hi) const {
+    vector<KeyValue> records;
+    if (lo <= hi) {
+        collectRange(root, lo, hi, records);
+    }
+    return records;
+}
