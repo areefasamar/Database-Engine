@@ -221,3 +221,38 @@ vector<KeyValue> AVLIndex::Range(Key lo, Key hi) const {
     }
     return records;
 }
+
+bool AVLIndex::validateNode(Node* node, const Key* lower, const Key* upper,
+                            int& actualHeight, size_t& actualCount) const {
+    if (node == nullptr) {
+        actualHeight = 0;
+        actualCount = 0;
+        return true;
+    }
+    // Bounds avoid key +/- 1, which could overflow at integer limits.
+    if ((lower != nullptr && node->key <= *lower) ||
+        (upper != nullptr && node->key >= *upper)) {
+        return false;
+    }
+
+    int leftHeight = 0;
+    int rightHeight = 0;
+    size_t leftCount = 0;
+    size_t rightCount = 0;
+    if (!validateNode(node->left, lower, &node->key, leftHeight, leftCount) ||
+        !validateNode(node->right, &node->key, upper, rightHeight, rightCount)) {
+        return false;
+    }
+
+    actualHeight = 1 + max(leftHeight, rightHeight);
+    actualCount = 1 + leftCount + rightCount;
+    int balance = leftHeight - rightHeight;
+    return node->height == actualHeight && balance >= -1 && balance <= 1;
+}
+
+bool AVLIndex::IsValid() const {
+    int actualHeight = 0;
+    size_t actualCount = 0;
+    return validateNode(root, nullptr, nullptr, actualHeight, actualCount)
+        && actualCount == count;
+}

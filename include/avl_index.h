@@ -34,6 +34,8 @@ private:
     Node* removeNode(Node* node, Key key, bool& removed);
     void collectRange(Node* node, Key lo, Key hi,
                       std::vector<KeyValue>& records) const;
+    bool validateNode(Node* node, const Key* lower, const Key* upper,
+                      int& actualHeight, std::size_t& actualCount) const;
 
 public:
     AVLIndex();
