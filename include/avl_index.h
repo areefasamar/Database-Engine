@@ -25,8 +25,9 @@ private:
 
          Node* insertNode(Node* node, Key key, const std::string& value, bool& inserted);
 
-        int nodeHeight(Node* node) const;
+    int nodeHeight(Node* node) const;
     void updateHeight(Node* node);
+    int balanceFactor(Node* node) const;
 
 public:
     AVLIndex();

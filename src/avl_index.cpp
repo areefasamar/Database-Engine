@@ -67,7 +67,7 @@ AVLIndex::Node* AVLIndex::insertNode(
     else {
         node->value = value;
     }
-    
+
     updateHeight(node);
     return node;
 }
@@ -97,4 +97,12 @@ void AVLIndex::updateHeight(Node* node) {
 
 int AVLIndex::Height() const {
     return nodeHeight(root);
+}
+
+int AVLIndex::balanceFactor(Node* node) const {
+    if (node == nullptr) {
+        return 0;
+    }
+
+    return nodeHeight(node->left) - nodeHeight(node->right);
 }
