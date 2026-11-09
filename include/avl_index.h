@@ -28,6 +28,7 @@ private:
     int nodeHeight(Node* node) const;
     void updateHeight(Node* node);
     int balanceFactor(Node* node) const;
+    Node* rotateRight(Node* node);
 
 public:
     AVLIndex();

@@ -106,3 +106,16 @@ int AVLIndex::balanceFactor(Node* node) const {
 
     return nodeHeight(node->left) - nodeHeight(node->right);
 }
+
+AVLIndex::Node* AVLIndex::rotateRight(Node* node) {
+    Node* newRoot = node->left;
+    Node* transferred = newRoot->right;
+
+    newRoot->right = node;
+    node->left = transferred;
+
+    updateHeight(node);
+    updateHeight(newRoot);
+
+    return newRoot;
+}
