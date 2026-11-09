@@ -68,8 +68,7 @@ AVLIndex::Node* AVLIndex::insertNode(
         node->value = value;
     }
 
-    updateHeight(node);
-    return node;
+    return rebalance(node);
 }
 
 bool AVLIndex::Put(Key key, const string& value) {
@@ -131,4 +130,29 @@ AVLIndex::Node* AVLIndex::rotateLeft(Node* node) {
     updateHeight(newRoot);
 
     return newRoot;
+}
+
+AVLIndex::Node* AVLIndex::rebalance(Node* node) {
+    if (node == nullptr) {
+        return nullptr;
+    }
+
+    updateHeight(node);
+    int balance = balanceFactor(node);
+
+    if (balance > 1) {
+        if (balanceFactor(node->left) < 0) {
+            node->left = rotateLeft(node->left); // LR case
+        }
+        return rotateRight(node); // LL, or second step of LR
+    }
+
+    if (balance < -1) {
+        if (balanceFactor(node->right) > 0) {
+            node->right = rotateRight(node->right); // RL case
+        }
+        return rotateLeft(node); // RR, or second step of RL
+    }
+
+    return node;
 }

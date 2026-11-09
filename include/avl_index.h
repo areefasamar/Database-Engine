@@ -21,15 +21,16 @@ private:
     Node* root;
     std::size_t count;
 
-     void clearTree(Node* node);
+    void clearTree(Node* node);
 
-         Node* insertNode(Node* node, Key key, const std::string& value, bool& inserted);
+    Node* insertNode(Node* node, Key key, const std::string& value, bool& inserted);
 
     int nodeHeight(Node* node) const;
     void updateHeight(Node* node);
     int balanceFactor(Node* node) const;
     Node* rotateRight(Node* node);
     Node* rotateLeft(Node* node);
+    Node* rebalance(Node* node);
 
 public:
     AVLIndex();
