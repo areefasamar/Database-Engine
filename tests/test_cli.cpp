@@ -1,6 +1,6 @@
-#include "avl_index.h"
-#include "cli.h"
-#include "database.h"
+#include "../index/avl_index.h"
+#include "../database/cli.h"
+#include "../database/database.h"
 #include <cstdlib>
 #include <iostream>
 #include <memory>

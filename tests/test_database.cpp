@@ -1,7 +1,7 @@
-#include "avl_index.h"
-#include "database.h"
-#include "linked_list_index.h"
-#include "sorted_array_index.h"
+#include "../index/avl_index.h"
+#include "../database/database.h"
+#include "../index/linked_list_index.h"
+#include "../index/sorted_array_index.h"
 #include <cstdlib>
 #include <functional>
 #include <iostream>
@@ -29,6 +29,7 @@ unique_ptr<Index> makeArray() { return unique_ptr<Index>(new SortedArrayIndex())
 unique_ptr<Index> makeAvl() { return unique_ptr<Index>(new AVLIndex()); }
 
 void testBasics(const IndexFactory& make) {
+    std::remove("unused.db");
     Database db("unused.db", make());
     string value = "unchanged";
     check(db.Size() == 0 && db.UndoDepth() == 0, "new database is empty");

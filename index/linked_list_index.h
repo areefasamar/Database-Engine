@@ -1,7 +1,7 @@
 #ifndef MINIDB_LINKED_LIST_INDEX_H
 #define MINIDB_LINKED_LIST_INDEX_H
 
-#include "index.h"
+#include "../index.h"
 
 // Baseline index: an unsorted singly linked list searched linearly, O(N).
 // Used for the Level 1 demo, as the benchmark baseline, and as a reference

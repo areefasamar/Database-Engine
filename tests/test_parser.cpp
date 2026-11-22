@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "../parser/parser.h"
 #include <cstdlib>
 #include <iostream>
 #include <limits>

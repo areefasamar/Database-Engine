@@ -1,6 +1,6 @@
-#include "avl_index.h"
-#include "linked_list_index.h"
-#include "sorted_array_index.h"
+#include "../index/avl_index.h"
+#include "../index/linked_list_index.h"
+#include "../index/sorted_array_index.h"
 #include <cstdlib>
 #include <iostream>
 #include <limits>

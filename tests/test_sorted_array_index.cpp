@@ -1,4 +1,4 @@
-#include "sorted_array_index.h"
+#include "../index/sorted_array_index.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
