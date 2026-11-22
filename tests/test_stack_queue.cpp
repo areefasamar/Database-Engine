@@ -1,5 +1,5 @@
-#include "circular_queue.h"
-#include "stack.h"
+#include "../data_structures/circular_queue.h"
+#include "../data_structures/stack.h"
 #include <cstdlib>
 #include <deque>
 #include <iostream>

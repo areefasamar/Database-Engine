@@ -1,5 +1,5 @@
-#include "common.h"
-#include "sorting.h"
+#include "../common.h"
+#include "../data_structures/sorting.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>

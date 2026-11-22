@@ -1,354 +1,226 @@
 # MiniDB: An Embedded Database Engine in C++
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
-![Build: CMake](https://img.shields.io/badge/build-CMake-064F8C.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![DSA Project](https://img.shields.io/badge/course-DSA%20project-lightgrey.svg)
 
-A small persistent key-value database built from scratch in C++17. It finds records with an AVL tree index, speeds up repeated reads with an LRU cache, and supports undo. Data is saved to a file and reloaded on start.
+A lightweight, persistent key-value database built from scratch in C++ (C++11/17 standard). It indexes records with an **AVL tree**, speeds up repeated reads with an **LRU cache** (backed by a custom Hash Table and Doubly-Linked List), supports **UNDO** operations via a dynamic stack, maintains command **HISTORY** with a circular queue, and provides stable value sorting with **Merge Sort**. Data is atomically persisted to disk and reloaded on start.
 
-Our Data Structures and Algorithms end-semester project. Every data structure is written by us. No external database libraries.
-
----
-
-## What it does
-
-```
-> PUT 101 "Areefa"
-SUCCESS: Record 101 inserted.
-> PUT 102 "Ali"
-SUCCESS: Record 102 inserted.
-> GET 101
-101 -> Areefa
-> SCAN 100 200
-101 -> Areefa
-102 -> Ali
-> DELETE 101
-SUCCESS: Record 101 deleted.
-> UNDO
-SUCCESS: Undid DELETE 101.
-> SORT VALUE
-102 -> Ali
-101 -> Areefa
-> EXIT
-```
-
-Keys are integers. Values are text (a word or a "quoted string").
-
-## Commands
-
-| Command | What it does |
-|---|---|
-| `PUT <key> <value>` | Insert a record, or update it if the key exists |
-| `GET <key>` | Fetch one record |
-| `DELETE <key>` | Remove a record |
-| `SCAN <lo> <hi>` | Return all records with keys from lo to hi, in order |
-| `SORT VALUE` | Show all records sorted by value |
-| `UNDO` | Reverse the last PUT or DELETE |
-| `HISTORY` | Show the last 10 commands |
-| `STATS` | Show cache hit/miss ratio, record count, tree height |
-| `EXIT` | Save everything to the file and quit |
+Every data structure and algorithm in MiniDB was custom-implemented for our Data Structures & Algorithms course project. No third-party containers or STL collections (`std::map`, `std::unordered_map`, `std::list`) are used in the core engine.
 
 ---
 
-## How it works
+## What It Does
 
-The database keeps records in an AVL tree, which stays balanced so every lookup takes O(log N) steps. A small LRU cache sits in front of it so recent reads are answered in O(1). Records are saved to a plain file on exit and loaded again on start.
-
-### Architecture
-
+```text
+minidb > PUT 101 "Areefa"
+  [OK] Inserted  key=101  =>  "Areefa"
+minidb > PUT 102 "Ali"
+  [OK] Inserted  key=102  =>  "Ali"
+minidb > GET 101
+  [OK] key=101  =>  "Areefa"
+minidb > SCAN 100 200
+  [>>] Scanning keys 100 to 200 ...
+  +----------------------------------------------------------+
+  |  KEY           VALUE
+  +----------------------------------------------------------+
+  |       101  =>  Areefa
+  |       102  =>  Ali
+  +----------------------------------------------------------+
+  2 record(s) returned.
+minidb > DELETE 101
+  [OK] Deleted  key=101
+minidb > UNDO
+  [OK] Last change undone.
+minidb > SORT VALUE
+  +----------------------------------------------------------+
+  |  KEY           VALUE
+  +----------------------------------------------------------+
+  |       102  =>  Ali
+  |       101  =>  Areefa
+  +----------------------------------------------------------+
+minidb > STATS
+  +==========================================================+
+  |                  DATABASE  STATISTICS                  |
+  +----------------------------------------------------------+
+  |  Records stored   : 64
+  |  Undo stack depth : 1
+  |  LRU Cache usage  : 16/16
+  |  Cache Hits       : 2
+  |  Cache Misses     : 1
+  |  Data file        : mydata.db
+  +==========================================================+
+minidb > EXIT
 ```
-User (CLI or C++ API)
+
+Keys are integers (`int`). Values are text strings (supports plain tokens or quoted strings with spaces, e.g., `PUT 1 "MINAHIL KHAN"`).
+
+---
+
+## Supported Commands
+
+| Command | Syntax | Operational Description |
+|---|---|---|
+| **PUT** | `PUT <key> <value>` | Insert a record, or update it if the key exists. Updates both the tree index and LRU cache. |
+| **GET** | `GET <key>` | Look up a record. Hits the LRU cache first ($O(1)$); on miss, searches the AVL tree ($O(\log N)$) and warms cache. |
+| **DELETE** | `DELETE <key>` | Remove a record from tree, invalidate cache entry, and push restoration delta to Undo stack. |
+| **SCAN** | `SCAN <lo> <hi>` | Return all records with keys in range $[lo, hi]$ in sorted key order using tree traversal. |
+| **SORT VALUE** | `SORT VALUE` | Display all records sorted alphabetically by string value using custom MergeSort. |
+| **UNDO** | `UNDO` | Reverse the last mutating operation (`PUT` or `DELETE`), restoring previous state. |
+| **HISTORY** | `HISTORY` | Display the last 10 commands executed using a fixed-capacity circular queue. |
+| **STATS** | `STATS` | Display stored record count, active undo depth, LRU cache usage & hit/miss ratio, and file path. |
+| **SAVE** | `SAVE` | Atomically persist all records to `mydata.db` immediately. |
+| **HELP** | `HELP` | Display the interactive command reference card. |
+| **EXIT** | `EXIT` | Automatically persist records to disk and safely exit. |
+
+---
+
+## System Architecture
+
+```text
+User (CLI / Dev-C++ / Terminal)
    |
    v
-[ Parser ]  text -> Command
-   |        HISTORY (circular queue)
+[ Parser ]  text -> Command object
+   |        HISTORY (CircularQueue)
    v
-[ Database ]  decides what to do, keeps the UNDO stack
+[ Database ]  Transaction coordinator & Undo Stack
    |
    +--------------------+
    |                    |
    v                    v
-[ LRU Cache ]      [ Index (ADT) ]
-hash table +        |-- AVLIndex          (final choice)
-doubly linked list  |-- SortedArrayIndex  (baseline, binary search)
-   |                |-- LinkedListIndex   (baseline, linear search)
+[ LRU Cache ]      [ Index (ADT Interface) ]
+HashTable +         |-- AVLIndex          (Primary: self-balancing BST)
+Doubly-Linked List  |-- SortedArrayIndex  (Baseline: binary search)
+   |                |-- LinkedListIndex   (Baseline: linear search)
    |                    |
    +----------+---------+
               v
-      [ Persistence ]  <->  mydata.db (plain file)
+      [ Persistence ]  <->  mydata.db (Atomic 2-phase disk format: MINIDB 1)
 
-[ Sorting ]  merge sort, quick sort (used by SORT)
+[ Sorting ]  MergeSort, QuickSort, InsertionSort, BubbleSort (used by SORT VALUE)
 ```
 
-The Database talks only to the `Index` interface, so the index implementation can be swapped by changing one line. We built the two simple indexes first, so the system worked before the AVL tree was ready, and we use them as benchmark baselines.
-
-### What happens on `PUT 101 "Areefa"`
-
-1. Parser turns the text into a command and adds it to HISTORY.
-2. Database reads the old value of key 101 (needed for UNDO).
-3. The AVL tree inserts or updates the key and rebalances with rotations if needed.
-4. The cache stores the record so the next GET is fast.
-5. The opposite action is pushed on the UNDO stack.
-
-`GET` checks the cache first (hit: O(1)). On a miss it searches the tree, then stores the result in the cache.
-
-### Data structures used
-
-| Data structure / algorithm | Where it is used |
-|---|---|
-| AVL tree | Main index: search, insert, delete, ordered range scan |
-| Binary search tree | Built first, then upgraded to AVL |
-| Hash table (chaining, rehashing) | Inside the LRU cache |
-| Doubly linked list | LRU ordering, O(1) move and evict |
-| Singly linked list | Hash bucket chains, LinkedListIndex |
-| Stack | UNDO |
-| Circular queue | HISTORY |
-| Linear search, binary search | Baseline indexes and benchmarks |
-| Merge sort, quick sort | SORT command |
-| Recursion | AVL operations, traversals, sorting |
-
-### AVL tree
-
-- Each node stores key, value, height, left and right child.
-- Balance factor = height(left) - height(right). If it reaches 2 or -2, we rotate.
-- Four cases: Left-Left, Right-Right, Left-Right, Right-Left.
-- Insert and delete rebalance every node on the path back to the root.
-- Range scan is a recursive in-order walk that skips subtrees outside the range.
-- Sorted input does not slow it down. A plain BST would turn into a chain.
-
-### LRU cache
-
-- Our own hash table maps key to a node in a doubly linked list.
-- Head of the list is most recently used. Tail is least recently used.
-- Get moves the node to the head. When the cache is full, the tail is evicted.
-- DELETE and UNDO also update the cache, so it never returns stale data.
-
-### Persistence
-
-Records are saved to a plain text file, one after another, with the value length before the value so spaces and line breaks are safe. The file is written to a temporary file first and then renamed, so a failure in the middle does not destroy the old file. On start, records are loaded back into the tree.
+The `Database` communicates strictly through the `Index` abstract interface, allowing the concrete storage structure (`AVLIndex`, `SortedArrayIndex`, or `LinkedListIndex`) to be selected at startup with zero changes to business logic.
 
 ---
 
-## Project structure
+## Data Structures & Algorithms Used
 
-```
-Database-Engine/
-  CMakeLists.txt
-  README.md
-  LICENSE
-  include/
-    common.h
-    index.h
-    linked_list_index.h
-    sorted_array_index.h
-    avl_index.h
-    hash_table.h
-    lru_cache.h
-    stack.h
-    circular_queue.h
-    sorting.h
-    persistence.h
-    parser.h
-    database.h
-  src/
-    main.cpp            (CLI)
-    ...                 (one .cpp per module that needs one)
-  tests/
-    test_linked_list_index.cpp
-    test_sorted_array_index.cpp
-    test_avl.cpp
-    test_hash_table.cpp
-    test_lru_cache.cpp
-    test_stack_queue.cpp
-    test_sorting.cpp
-    test_parser.cpp
-    test_persistence.cpp
-    test_database.cpp
-  bench/
-    bench_main.cpp
-  docs/
-    architecture.md
-```
-
----
-
-## Build and run
-
-Requirements: C++17 compiler (g++ or clang), CMake.
-
-```bash
-git clone <repo-url>
-cd Database-Engine
-mkdir build && cd build
-cmake ..
-cmake --build .
-```
-
-Run the CLI:
-
-```bash
-./minidb mydata.db
-```
-
-Run the tests:
-
-```bash
-ctest --output-on-failure
-```
-
-Run with sanitizers (catches leaks and invalid memory access):
-
-```bash
-cmake -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined" ..
-cmake --build .
-```
-
-## Using it as a C++ library
-
-```cpp
-#include "database.h"
-
-Database db("mydata.db");
-db.Put(101, "Areefa");
-
-std::string value;
-if (db.Get(101, &value)) {
-    // value == "Areefa"
-}
-
-auto rows = db.Scan(100, 200);   // sorted by key
-db.Delete(101);
-db.Undo();                       // 101 is back
-// destructor saves everything to the file
-```
-
----
-
-## Testing
-
-| Module | What is tested |
-|---|---|
-| Linked list and sorted array index | Put, update, get, remove, range, same answers as each other |
-| AVL tree | Sequential, reverse and random inserts, random deletes, validity check after every step, height bound, sorted range scan |
-| Hash table | Collisions, update, remove from a chain, rehash keeps every key |
-| LRU cache | Eviction order, update moves to front, remove, hit/miss counts |
-| Stack and circular queue | Push, pop, empty cases, wrap-around, overwrite when full |
-| Sorting | Empty, duplicates, sorted, reverse, random, all algorithms agree |
-| Parser | Valid commands, quoted strings, missing arguments, non-numeric keys |
-| Persistence | Put 1000 records, close, reopen, all still equal |
-| Database | UNDO restores state, cache never returns a deleted key |
-| Stress | 100k random operations compared with a reference |
-
----
-
-## Benchmarks
-
-Measured with `std::chrono`. Machine: `<CPU, RAM, OS>`. Compiler flags: `-O2`.
-
-> Numbers below are filled in after running `bench/bench_main.cpp`. Do not trust a row until it has a value.
-
-**1. GET latency by index type**
-
-| N keys | Linked list (linear) | Sorted array (binary search) | AVL tree |
-|---|---|---|---|
-| 1,000 | TBD | TBD | TBD |
-| 10,000 | TBD | TBD | TBD |
-| 100,000 | TBD | TBD | TBD |
-
-**2. Sorted inserts: plain BST vs AVL**
-
-| N keys | BST height | AVL height | BST time | AVL time |
-|---|---|---|---|---|
-| 1,000 | TBD | TBD | TBD | TBD |
-| 10,000 | TBD | TBD | TBD | TBD |
-
-**3. Cache size vs hit rate**
-
-| Cache size | Hit rate |
-|---|---|
-| 4 | TBD |
-| 16 | TBD |
-| 64 | TBD |
-| 256 | TBD |
-
-**4. Sorting time**
-
-| Algorithm | N = 1,000 | N = 10,000 |
+| Data Structure / Algorithm | File Location | Purpose & Complexity |
 |---|---|---|
-| Bubble sort | TBD | TBD |
-| Insertion sort | TBD | TBD |
-| Merge sort | TBD | TBD |
-| Quick sort | TBD | TBD |
+| **AVL Tree (Self-Balancing BST)** | `index/avl_index.*` | Primary search index. Balance factor $\in \{-1, 0, 1\}$. Insert, search, delete: $O(\log N)$. Ordered range scan: $O(\log N + k)$. |
+| **Hash Table (Chaining + Rehashing)** | `cache/hash_table.h` | Prime bucket array with singly-linked collision chains and dynamic rehashing at load $> 0.75$. Lookup, insert, delete: $O(1)$ avg. |
+| **LRU Cache** | `cache/lru_cache.*` | Combines `HashTable<Node*>` with a doubly-linked list. Fast read hits: $O(1)$. LRU eviction: $O(1)$. |
+| **Dynamic Array Stack** | `data_structures/stack.h` | Array-backed LIFO stack that doubles on full. Powers reversible transaction `UNDO`. Push/Pop: $O(1)$. |
+| **Circular Queue (Ring Buffer)** | `data_structures/circular_queue.h` | Fixed rolling history of last 10 commands without memory reallocation. Push/Access: $O(1)$. |
+| **Merge Sort** | `data_structures/sorting.h` | Stable, divide-and-conquer sorting algorithm used by `SORT VALUE`. Time: $O(N \log N)$. |
+| **Quick Sort, Insertion, Bubble** | `data_structures/sorting.h` | Benchmark comparison algorithms. |
+| **Singly Linked List Index** | `index/linked_list_index.*` | Baseline comparison index (Level 1). Linear search: $O(N)$. |
+| **Sorted Dynamic Array Index** | `index/sorted_array_index.*` | Baseline comparison index (Level 2). Binary search: $O(\log N)$, Insert/Delete: $O(N)$. |
+| **Atomic Persistence** | `database/persistence.*` | Length-prefixed binary/text format (`MINIDB 1`), temporary `.tmp` swap to prevent partial writes. |
 
 ---
 
-## Complexity
+## Project Structure
 
-| Operation | Time |
-|---|---|
-| PUT | O(log N) |
-| GET | O(1) on a cache hit, O(log N) on a miss |
-| DELETE | O(log N) |
-| SCAN (k results) | O(log N + k) |
-| UNDO | O(log N) |
-| SORT VALUE | O(N log N) |
-| Cache get / put | O(1) |
+```text
+Database-Engine/
+├── common.h                     <- Shared primitive types (Key, KeyValue)
+├── index.h                      <- Abstract Index interface
+├── main.cpp                     <- Application entry point (initializes index, DB, CLI)
+├── mydata.db                    <- Persistent storage file (64 pre-seeded records)
+├── PROJECT_REPORT.md            <- Complete project report & technical specification
+│
+├── cache/                       <- Arbish's module
+│   ├── hash_table.h             <- Templated separate-chaining Hash Table
+│   ├── lru_cache.h              <- LRU Cache header
+│   └── lru_cache.cpp            <- LRU Cache implementation (Hash Table + Doubly-Linked List)
+│
+├── data_structures/             <- Core ADTs & Algorithms
+│   ├── stack.h                  <- Dynamic array Stack (UNDO)
+│   ├── circular_queue.h         <- Ring-buffer Circular Queue (HISTORY)
+│   └── sorting.h                <- Bubble, Insertion, Merge, and Quick Sort
+│
+├── index/                       <- Search tree implementations
+│   ├── avl_index.h              <- AVL tree header with 4 rotation cases
+│   ├── avl_index.cpp            <- Self-balancing AVL tree implementation
+│   ├── linked_list_index.h/.cpp <- Baseline unsorted singly-linked list
+│   └── sorted_array_index.h/.cpp<- Baseline sorted dynamic array with binary search
+│
+├── parser/                      <- Command processor
+│   ├── parser.h                 <- Token and Command structs
+│   └── parser.cpp               <- Quoted tokenizer & syntax validator
+│
+├── database/                    <- Core coordinator & UI
+│   ├── database.h               <- Database coordinator header
+│   ├── database.cpp             <- CRUD, Undo, Cache, & Persistence coordination
+│   ├── cli.h                    <- REPL interface declaration
+│   ├── cli.cpp                  <- ANSI-colored terminal interface
+│   ├── persistence.h            <- Persistence class declaration
+│   └── persistence.cpp          <- Crash-safe disk save/load implementation
+│
+└── tests/                       <- Standalone test suites (one main() per test)
+    ├── test_avl.cpp             <- 100,000-operation AVL tree invariant test
+    ├── test_hash_table.cpp      <- Hash Table collision & rehash test
+    ├── test_lru_cache.cpp       <- LRU Cache eviction & lookup test
+    ├── test_persistence.cpp     <- Atomic serialization & reload test
+    ├── test_cli.cpp             <- REPL command tests
+    ├── test_database.cpp        <- Integration & rollback tests
+    ├── test_index_crosscheck.cpp<- Cross-checks AVL vs Array vs List
+    ├── test_linked_list_index.cpp
+    ├── test_sorted_array_index.cpp
+    ├── test_sorting.cpp         <- Sorting algorithm correctness tests
+    └── test_stack_queue.cpp     <- Stack & Circular Queue unit tests
+```
 
 ---
 
-## Design decisions
+## How to Build & Run
 
-- **Why an AVL tree and not a plain BST?** A BST turns into a chain when keys arrive in order, and sequential IDs are common. AVL keeps the height near 1.44 x log2(N).
-- **Why keep a tree if a hash table is faster?** A hash table cannot return keys in order, so SCAN and sorted output need the tree.
-- **Why a hash table plus doubly linked list for LRU?** The hash table finds the node, the list moves and evicts it, both in O(1).
-- **Why a stack for UNDO?** Last change is the first to be reversed.
-- **Why a circular queue for HISTORY?** Keeps only the last 10 commands without shifting anything.
-- **Why build two baseline indexes?** They give us a working system early, a benchmark comparison, and a way to test the AVL tree against known-correct answers.
-- **Why build in levels?** So something always runs. Each level is a working demo.
+### In Embarcadero Dev-C++ (Recommended for Submission)
+1. Open Dev-C++ and open your project (or create a new empty project).
+2. Add the following **9 source files** to the project:
+   - `main.cpp`
+   - `cache/lru_cache.cpp`
+   - `index/avl_index.cpp`
+   - `index/linked_list_index.cpp`
+   - `index/sorted_array_index.cpp`
+   - `parser/parser.cpp`
+   - `database/database.cpp`
+   - `database/cli.cpp`
+   - `database/persistence.cpp`
+3. Set the C++ standard to C++11 or C++17:
+   `Tools` -> `Compiler Options` -> Add `-std=c++11` or `-std=c++17` in the compiler parameters.
+4. Press **F12** (Rebuild All) then **F11** (Compile & Run).
 
-| Level | What it adds |
-|---|---|
-| 1 | Linked-list index, Database class, CLI, save and load |
-| 2 | Sorted-array index, UNDO, HISTORY |
-| 3 | AVL tree replaces the baseline index |
-| 4 | Hash table and LRU cache, SCAN, SORT, STATS |
-| 5 | Tests, benchmarks, README, stretch goals |
+### Command Line (GCC / Clang)
+```bash
+g++ -std=c++17 -O2 main.cpp cache/lru_cache.cpp index/avl_index.cpp index/linked_list_index.cpp index/sorted_array_index.cpp parser/parser.cpp database/database.cpp database/cli.cpp database/persistence.cpp -o minidb.exe
+./minidb.exe
+```
 
-## Known limitations
-
-- Single-threaded. No locks.
-- Records are saved on EXIT. If the program crashes before saving, changes since the last save are lost.
-- Everything is held in memory while the program runs, so the data set must fit in RAM.
-- Keys are 64-bit integers only.
-- Not a SQL database. No joins, no query optimizer, no network layer.
-
-## Future work
-
-Append-only log for crash safety, BATCH command from a file (queue), key expiry with a priority queue (heap), graph links between records, more index types.
+### Running Tests
+Each test file under `tests/` is a self-contained unit test executable with its own `main()`:
+```bash
+g++ -std=c++17 tests/test_avl.cpp index/avl_index.cpp -o test_avl.exe && ./test_avl.exe
+g++ -std=c++17 tests/test_hash_table.cpp -o test_hash_table.exe && ./test_hash_table.exe
+g++ -std=c++17 tests/test_lru_cache.cpp cache/lru_cache.cpp -o test_lru_cache.exe && ./test_lru_cache.exe
+g++ -std=c++17 tests/test_persistence.cpp database/persistence.cpp -o test_persistence.exe && ./test_persistence.exe
+```
 
 ---
 
-## Team
+## Team Allocation & Responsibilities
 
-| Member | Owns |
-|---|---|
-| Areeba | AVL tree: insert, delete, rotations, range scan, validity checks |
-| Arbish | Hash table, LRU cache, persistence, CMake setup |
-| Areefa | Index interface, linked-list and sorted-array indexes, stack, circular queue, sorting, parser and CLI, Database class, integration, benchmarks, README |
+| Member | Assigned Modules | Deliverables |
+|---|---|---|
+| **Areefa Samar (Lead)** | System Integration, Baselines, Data Structures, & CLI | Project architecture, `Index` ADT, `LinkedListIndex`, `SortedArrayIndex`, `Stack` (UNDO), `CircularQueue` (HISTORY), 4 sorting algorithms, CLI REPL, command tokenizer & parser, and project integration. |
+| **Areeba (CT-25070)** | Index Layer (AVL Tree) | `AVLIndex` implementation: 4 tree rotation cases (LL, RR, LR, RL), in-order successor deletion, height bookkeeping, range query pruning, and invariant tree validation (`IsValid()`). |
+| **Arbish** | Cache & Persistence Layer | Templated `HashTable` with separate chaining and prime rehashing, $O(1)$ `LRUCache` combining hash table and doubly-linked list, and atomic 2-phase disk serialization (`Persistence`). |
 
-Contribution history is in the git log. Each person works on their own branch and merges through a pull request.
-
-## Learning resources
-
-- Our course lectures and slides
-- USFCA data structure visualizations (AVL trees, hash tables)
-
-Used to understand concepts. Code is our own.
+---
 
 ## License
 
-MIT. See the [LICENSE](LICENSE) file.
-
-Copyright (c) 2026 Areefa, Areeba, Arbish
-(hello, its arbish here)
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

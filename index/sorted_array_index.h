@@ -1,7 +1,7 @@
 #ifndef MINIDB_SORTED_ARRAY_INDEX_H
 #define MINIDB_SORTED_ARRAY_INDEX_H
 
-#include "index.h"
+#include "../index.h"
 
 // Baseline index: a dynamic array kept sorted by key.
 // Lookup uses binary search, O(log N). Insert and remove shift elements, O(N).

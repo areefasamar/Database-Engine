@@ -1,7 +1,7 @@
 #ifndef MINIDB_PARSER_H
 #define MINIDB_PARSER_H
 
-#include "common.h"
+#include "../common.h"
 #include <string>
 #include <vector>
 
@@ -22,7 +22,7 @@
 // sequences, so a value cannot contain a double quote character.
 
 enum class CommandType {
-    PUT, GET, DELETE, SCAN, SORT, UNDO, HISTORY, STATS, EXIT, INVALID
+    PUT, GET, DELETE, SCAN, SORT, UNDO, HISTORY, STATS, SAVE, EXIT, INVALID
 };
 
 struct Command {

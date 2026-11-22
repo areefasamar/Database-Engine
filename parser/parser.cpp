@@ -57,7 +57,7 @@ Command parseTokens(const std::vector<ParserToken>& tokens) {
     std::string name = toUpper(tokens[0].text);
     bool known = name == "PUT" || name == "GET" || name == "DELETE"
                  || name == "SCAN" || name == "SORT" || name == "UNDO"
-                 || name == "HISTORY" || name == "STATS" || name == "EXIT";
+                 || name == "HISTORY" || name == "STATS" || name == "SAVE" || name == "EXIT";
 
     // Quotes are only meaningful around the PUT value (token 2).
     if (known) {
@@ -121,7 +121,7 @@ Command parseTokens(const std::vector<ParserToken>& tokens) {
     }
 
     if (name == "UNDO" || name == "HISTORY" || name == "STATS"
-        || name == "EXIT") {
+        || name == "SAVE" || name == "EXIT") {
         if (tokens.size() != 1) {
             return makeError(name + " takes no arguments.");
         }
@@ -131,6 +131,8 @@ Command parseTokens(const std::vector<ParserToken>& tokens) {
             command.type = CommandType::HISTORY;
         } else if (name == "STATS") {
             command.type = CommandType::STATS;
+        } else if (name == "SAVE") {
+            command.type = CommandType::SAVE;
         } else {
             command.type = CommandType::EXIT;
         }
@@ -138,7 +140,7 @@ Command parseTokens(const std::vector<ParserToken>& tokens) {
     }
 
     return makeError("Unknown command '" + tokens[0].text + "'. Commands: PUT, "
-                     "GET, DELETE, SCAN, SORT VALUE, UNDO, HISTORY, STATS, EXIT.");
+                     "GET, DELETE, SCAN, SORT VALUE, UNDO, HISTORY, STATS, SAVE, EXIT.");
 }
 
 }  // namespace
