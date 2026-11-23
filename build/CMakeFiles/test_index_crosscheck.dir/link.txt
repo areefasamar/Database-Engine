@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\test_index_crosscheck.dir/objects.a
-C:\MinGW\bin\ar.exe qc CMakeFiles\test_index_crosscheck.dir/objects.a @CMakeFiles\test_index_crosscheck.dir\objects1.rsp
-C:\MinGW\bin\c++.exe -Wl,--whole-archive CMakeFiles\test_index_crosscheck.dir/objects.a -Wl,--no-whole-archive -o test_index_crosscheck.exe -Wl,--out-implib,libtest_index_crosscheck.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\test_index_crosscheck.dir\linkLibs.rsp

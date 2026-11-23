@@ -1,2 +1,0 @@
-C:\MinGW\bin\ar.exe qc libminidb_lib.a CMakeFiles/minidb_lib.dir/cli.cpp.obj CMakeFiles/minidb_lib.dir/database.cpp.obj CMakeFiles/minidb_lib.dir/linked_list_index.cpp.obj CMakeFiles/minidb_lib.dir/lru_cache.cpp.obj CMakeFiles/minidb_lib.dir/parser.cpp.obj CMakeFiles/minidb_lib.dir/persistence.cpp.obj CMakeFiles/minidb_lib.dir/sorted_array_index.cpp.obj CMakeFiles/minidb_lib.dir/src/avl_index.cpp.obj
-C:\MinGW\bin\ranlib.exe libminidb_lib.a

@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\minidb.dir/objects.a
-C:\MinGW\bin\ar.exe qc CMakeFiles\minidb.dir/objects.a @CMakeFiles\minidb.dir\objects1.rsp
-C:\MinGW\bin\c++.exe -Wl,--whole-archive CMakeFiles\minidb.dir/objects.a -Wl,--no-whole-archive -o minidb.exe -Wl,--out-implib,libminidb.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\minidb.dir\linkLibs.rsp
