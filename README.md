@@ -138,7 +138,7 @@ Database-Engine/
 ├── index.h                      <- Abstract Index interface
 ├── main.cpp                     <- Application entry point (initializes index, DB, CLI)
 ├── mydata.db                    <- Persistent storage file (64 pre-seeded records)
-├── PROJECT_REPORT.md            <- Complete project report & technical specification
+├── Database_Engine_Report.pdf            <- Complete project report & technical specification
 │
 ├── cache/                       <- Arbish's module
 │   ├── hash_table.h             <- Templated separate-chaining Hash Table
