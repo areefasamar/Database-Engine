@@ -23,8 +23,8 @@ Every data structure and algorithm in MiniDB was custom-implemented for our Data
 ```text
 minidb > PUT 101 "Areefa"
   [OK] Inserted  key=101  =>  "Areefa"
-minidb > PUT 102 "Ali"
-  [OK] Inserted  key=102  =>  "Ali"
+minidb > PUT 102 "Arbish"
+  [OK] Inserted  key=102  =>  "Arbish"
 minidb > GET 101
   [OK] key=101  =>  "Areefa"
 minidb > SCAN 100 200
@@ -33,7 +33,7 @@ minidb > SCAN 100 200
   |  KEY           VALUE
   +----------------------------------------------------------+
   |       101  =>  Areefa
-  |       102  =>  Ali
+  |       102  =>  Arbish
   +----------------------------------------------------------+
   2 record(s) returned.
 minidb > DELETE 101
@@ -44,7 +44,7 @@ minidb > SORT VALUE
   +----------------------------------------------------------+
   |  KEY           VALUE
   +----------------------------------------------------------+
-  |       102  =>  Ali
+  |       102  =>  Arbish
   |       101  =>  Areefa
   +----------------------------------------------------------+
 minidb > STATS
