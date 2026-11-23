@@ -2,7 +2,6 @@
 
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
-<<<<<<< HEAD
 ![DSA Project](https://img.shields.io/badge/course-DSA%20Project-lightgrey.svg)
 ![NED University](https://img.shields.io/badge/NED%20University-Karachi-006600.svg)
 
@@ -12,8 +11,6 @@
 > **Submitted to:** Muhammad Imran  
 > **Date:** 18 November 2026  
 > **Repository:** [github.com/areefasamar/Database-Engine](https://github.com/areefasamar/Database-Engine)
-=======
-![DSA Project](https://img.shields.io/badge/course-DSA%20project-lightgrey.svg)
 
 A lightweight, persistent key-value database built from scratch in C++ (C++11/17 standard). It indexes records with an **AVL tree**, speeds up repeated reads with an **LRU cache** (backed by a custom Hash Table and Doubly-Linked List), supports **UNDO** operations via a dynamic stack, maintains command **HISTORY** with a circular queue, and provides stable value sorting with **Merge Sort**. Data is atomically persisted to disk and reloaded on start.
 
