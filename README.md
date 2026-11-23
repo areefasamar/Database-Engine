@@ -497,4 +497,3 @@ Copyright (c) 2026 Areefa Samar, Areeba, Arbish
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
->>>>>>> 2821b4ac30b0e25daad825421f5ce30a8f21e240
